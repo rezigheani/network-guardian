@@ -20,11 +20,25 @@ interface TrafficChartProps {
   loading: boolean;
 }
 
+// Format bps to human readable with auto unit selection
 const formatBps = (bps: number): string => {
+  if (bps === 0) return "0 bps";
   if (bps >= 1e9) return `${(bps / 1e9).toFixed(2)} Gbps`;
   if (bps >= 1e6) return `${(bps / 1e6).toFixed(2)} Mbps`;
   if (bps >= 1e3) return `${(bps / 1e3).toFixed(2)} Kbps`;
-  return `${bps} bps`;
+  return `${bps.toFixed(0)} bps`;
+};
+
+// Smart Y-axis formatter that auto-selects unit based on max value
+const formatYAxis = (value: number, maxValue: number): string => {
+  if (maxValue >= 1e9) {
+    return `${(value / 1e9).toFixed(1)}G`;
+  } else if (maxValue >= 1e6) {
+    return `${(value / 1e6).toFixed(1)}M`;
+  } else if (maxValue >= 1e3) {
+    return `${(value / 1e3).toFixed(1)}K`;
+  }
+  return `${value.toFixed(0)}`;
 };
 
 const formatTime = (timestamp: string): string => {
@@ -35,14 +49,37 @@ const formatTime = (timestamp: string): string => {
 };
 
 export const TrafficChart = ({ logs, loading }: TrafficChartProps) => {
-  const chartData = useMemo(() => {
-    return logs.map((log) => ({
+  const { chartData, maxValue, unit } = useMemo(() => {
+    // Find max value to determine the best unit
+    let max = 0;
+    logs.forEach((log) => {
+      if (log.rx_bps > max) max = log.rx_bps;
+      if (log.tx_bps > max) max = log.tx_bps;
+    });
+
+    // Determine unit and divisor based on max value
+    let divisor = 1;
+    let unitLabel = "bps";
+    if (max >= 1e9) {
+      divisor = 1e9;
+      unitLabel = "Gbps";
+    } else if (max >= 1e6) {
+      divisor = 1e6;
+      unitLabel = "Mbps";
+    } else if (max >= 1e3) {
+      divisor = 1e3;
+      unitLabel = "Kbps";
+    }
+
+    const data = logs.map((log) => ({
       time: formatTime(log.created_at),
-      rx: log.rx_bps / 1e6, // Convert to Mbps for display
-      tx: log.tx_bps / 1e6,
+      rx: log.rx_bps / divisor,
+      tx: log.tx_bps / divisor,
       rxRaw: log.rx_bps,
       txRaw: log.tx_bps,
     }));
+
+    return { chartData: data, maxValue: max, unit: unitLabel };
   }, [logs]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -112,7 +149,17 @@ export const TrafficChart = ({ logs, loading }: TrafficChartProps) => {
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
                 tickLine={false}
-                tickFormatter={(value) => `${value} Mbps`}
+                tickFormatter={(value) => `${value.toFixed(1)}`}
+                label={{
+                  value: unit,
+                  angle: -90,
+                  position: "insideLeft",
+                  style: {
+                    textAnchor: "middle",
+                    fill: "hsl(var(--muted-foreground))",
+                    fontSize: 12,
+                  },
+                }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
