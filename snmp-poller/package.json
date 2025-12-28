@@ -1,0 +1,16 @@
+{
+  "name": "noc-snmp-poller",
+  "version": "1.0.0",
+  "description": "SNMP Poller for NOC Dashboard",
+  "main": "poller.js",
+  "type": "module",
+  "scripts": {
+    "start": "node poller.js",
+    "dev": "node --watch poller.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.0",
+    "dotenv": "^16.4.5",
+    "net-snmp": "^3.15.3"
+  }
+}
